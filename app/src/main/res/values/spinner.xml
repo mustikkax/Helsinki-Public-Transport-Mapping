@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="type_array">
+        <item>+</item>
+        <item>bus</item>
+        <item>tram</item>
+        <item>rail</item>
+        <item>ferry</item>
+    </string-array>
+</resources>
