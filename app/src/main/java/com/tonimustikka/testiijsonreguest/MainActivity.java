@@ -6,16 +6,14 @@ import android.os.AsyncTask;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.EditText;
+import android.widget.AutoCompleteTextView;
 import android.widget.Spinner;
-import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -35,18 +33,64 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
+
+
+
+    public static class HslId {
+        private String gtfsid;
+        private String shortname;
+        private String longname;
+
+        public void User (String gtfsid, String shortname, String longname) {
+            this.gtfsid = gtfsid;
+            this.shortname = shortname;
+            this.longname = longname;
+        }
+    }
+
+    private void UpdateMap(Spinner typeSpinner,AutoCompleteTextView lineText, ArrayList<String> Names,  ArrayList<String> IDs) {
+        String lineId = null;
+        String line = lineText.getText().toString().toUpperCase();
+        if (line.length() > 0) {
+            for(int x = 0; x < Names.size(); x++) {
+                if(Names.get(x).toString().equals(line)) {
+                    lineId = IDs.get(x).toString();
+                    break;
+                }
+            }
+
+            try {
+                lineId = lineId.split(":")[1];
+                new JSONTask().execute("https://api.digitransit.fi/realtime/vehicle-positions/v1/hfp/journey/+/+/" + lineId + "/");
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(getApplicationContext(), "Bad Line number", Toast.LENGTH_LONG).show();
+            }
+
+
+
+        } else {
+            new JSONTask().execute("https://api.digitransit.fi/realtime/vehicle-positions/v1/hfp/journey/" + typeSpinner.getSelectedItem().toString() + "/+/+/");
+        }
+
+
+        Log.d("Deebug", "Worked!!");
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
+
         FloatingActionButton btnHit = (FloatingActionButton) findViewById(R.id.btnHit);
-        final EditText lineNum = (EditText) findViewById(R.id.lineNum);
+        //final EditText lineNum = (EditText) findViewById(R.id.lineNum);
 
 
         final Spinner typeSpinner = (Spinner) findViewById(R.id.type_spinner);
@@ -59,28 +103,62 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         typeSpinner.setAdapter(adapter);
 
 
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.mapView);
-        mapFragment.getMapAsync(this);
+
+
+
+
+
+        Vehicleid foo = new Vehicleid();
+        Thread tt = new Thread(foo);
+        tt.start();
+        // ... join through some method
+        try {
+            tt.join(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        final ArrayList<String> Names = foo.getNames();
+        final ArrayList<String> IDs = foo.getGtfsIds();
+
+
+
+        final AutoCompleteTextView lineText = (AutoCompleteTextView) findViewById(R.id.line_text);
+        // Create an ArrayAdapter using the string array and a default spinner layout
+        ArrayAdapter<String> adapter2 = new ArrayAdapter<String>(this, android.R.layout.simple_dropdown_item_1line, Names);
+        // Specify the layout to use when the list of choices appears
+        //adapter.setDropDownViewResource(android.R.layout.simple_dropdown_item_1line);
+        // Apply the adapter to the spinner
+        lineText.setAdapter(adapter2);
+
+        lineText.setThreshold(1);
+
+        lineText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                lineText.showDropDown();
+            }
+        });
+
+        lineText.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                UpdateMap(typeSpinner, lineText, Names, IDs);
+            }
+        });
+
 
         btnHit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-
-
-                String line = lineNum.getText().toString();
-                if (line != null) {
-                    Log.d("sa", typeSpinner.getSelectedItem().toString());
-                    new JSONTask().execute("https://api.digitransit.fi/realtime/vehicle-positions/v1/hfp/journey/" + typeSpinner.getSelectedItem().toString() + "/+/" + line + "/");
-                } else {
-                    new JSONTask().execute("https://api.digitransit.fi/realtime/vehicle-positions/v1/hfp/journey/" + typeSpinner.getSelectedItem().toString() + "/+/+/");
-                }
-
-
-                Log.d("Deebug", "Worked!!");
+                UpdateMap(typeSpinner, lineText, Names, IDs);
             }
         });
+
+
+
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.mapView);
+        mapFragment.getMapAsync(this);
 
     }
 
@@ -125,7 +203,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                 StringBuffer buffer = new StringBuffer();
 
-                String line = "";
+                String line;
                 while ((line = reader.readLine()) != null){
                     buffer.append(line);
                 }
